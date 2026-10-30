@@ -1,44 +1,44 @@
 #!/bin/bash
+# Build the ShopEdge image once and push it to ECR, ACR and Artifact Registry.
+# Usage: AWS_ACCOUNT_ID=... AZURE_REGISTRY=... GCP_PROJECT=... ./build_push_all.sh
+set -euo pipefail
 
-# Set variables
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+APP_DIR="$SCRIPT_DIR/../app"
+
 APP_NAME="shop-edge"
-VERSION="1.0.0"
-REGISTRIES=("aws" "azure" "gcp")
+VERSION="${VERSION:-1.0.0}"
 
-# AWS ECR Configuration
-AWS_ACCOUNT_ID="565393029077"
-AWS_REGION="us-east-1"
+# AWS ECR (registry created by shopedge/infra/aws)
+: "${AWS_ACCOUNT_ID:?Set AWS_ACCOUNT_ID}"
+AWS_REGION="${AWS_REGION:-us-east-1}"
 ECR_REPO="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$APP_NAME"
 
-Azure ACR Configuration
-AZURE_REGISTRY="shopedge"
+# Azure ACR (use the acr_login_server output from shopedge/infra/azure, without .azurecr.io)
+: "${AZURE_REGISTRY:?Set AZURE_REGISTRY, e.g. shopedgeacrab12c}"
 AZURE_REPO="$AZURE_REGISTRY.azurecr.io/$APP_NAME"
 
-GCP Artifact Registry Configuration
-GCP_PROJECT="striking-water-472711-g2"
-GCP_REGION="us-central1"
+# GCP Artifact Registry (repository created by shopedge/infra/gcp)
+: "${GCP_PROJECT:?Set GCP_PROJECT}"
+GCP_REGION="${GCP_REGION:-us-central1}"
 GCP_REPO="$GCP_REGION-docker.pkg.dev/$GCP_PROJECT/$APP_NAME/$APP_NAME"
 
-# Build the image
 echo "Building Docker image..."
-docker build -t $APP_NAME:$VERSION .
+docker build -t "$APP_NAME:$VERSION" "$APP_DIR"
 
-# Tag and push to AWS ECR
 echo "Pushing to AWS ECR..."
-aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO
-docker tag $APP_NAME:$VERSION $ECR_REPO:$VERSION
-docker push $ECR_REPO:$VERSION
+aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$ECR_REPO"
+docker tag "$APP_NAME:$VERSION" "$ECR_REPO:$VERSION"
+docker push "$ECR_REPO:$VERSION"
 
-# Tag and push to Azure ACR
 echo "Pushing to Azure ACR..."
-az acr login --name $AZURE_REGISTRY
-docker tag $APP_NAME:$VERSION $AZURE_REPO:$VERSION
-docker push $AZURE_REPO:$VERSION
+az acr login --name "$AZURE_REGISTRY"
+docker tag "$APP_NAME:$VERSION" "$AZURE_REPO:$VERSION"
+docker push "$AZURE_REPO:$VERSION"
 
-# # Tag and push to GCP Artifact Registry
 echo "Pushing to GCP Artifact Registry..."
-gcloud auth configure-docker $GCP_REGION-docker.pkg.dev
-docker tag $APP_NAME:$VERSION $GCP_REPO:$VERSION
-docker push $GCP_REPO:$VERSION
+gcloud auth configure-docker "$GCP_REGION-docker.pkg.dev" --quiet
+docker tag "$APP_NAME:$VERSION" "$GCP_REPO:$VERSION"
+docker push "$GCP_REPO:$VERSION"
 
-echo "Images pushed to all aws registries!"
+echo "Images pushed to ECR, ACR and Artifact Registry."
