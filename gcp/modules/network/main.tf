@@ -2,7 +2,7 @@
 resource "google_compute_network" "main" {
   name                    = "${var.project_name}-vpc"
   auto_create_subnetworks = false
-  routing_mode           = "REGIONAL"
+  routing_mode            = "REGIONAL"
 }
 
 # Public Subnet (Web Tier)

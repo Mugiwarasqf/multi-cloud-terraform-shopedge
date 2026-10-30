@@ -178,8 +178,8 @@ resource "aws_eks_cluster" "this" {
   version  = var.kubernetes_version
 
   vpc_config {
-    subnet_ids         = var.subnet_ids
-    security_group_ids = [aws_security_group.eks_cluster_sg.id]
+    subnet_ids              = var.subnet_ids
+    security_group_ids      = [aws_security_group.eks_cluster_sg.id]
     endpoint_private_access = var.endpoint_private_access
     endpoint_public_access  = var.endpoint_public_access
   }
@@ -210,9 +210,14 @@ resource "aws_eks_node_group" "managed_nodes" {
   capacity_type  = var.capacity_type
   ami_type       = var.ami_type
 
-  remote_access {
-    ec2_ssh_key = var.ssh_key_name
-    source_security_group_ids = var.remote_access_sg_ids
+  # SSH access is only configured when a key pair is given
+  dynamic "remote_access" {
+    for_each = var.ssh_key_name != "" ? [1] : []
+
+    content {
+      ec2_ssh_key               = var.ssh_key_name
+      source_security_group_ids = var.remote_access_sg_ids
+    }
   }
 
   tags = merge(var.common_tags, {
@@ -238,7 +243,7 @@ data "aws_iam_openid_connect_provider" "maybe" {
 }
 
 resource "aws_iam_openid_connect_provider" "eks" {
-  url = data.aws_eks_cluster.this.identity[0].oidc[0].issuer
+  url            = data.aws_eks_cluster.this.identity[0].oidc[0].issuer
   client_id_list = ["sts.amazonaws.com"]
   thumbprint_list = [
     # AWS uses the common thumbprint; you can fetch this programmatically in pipelines.

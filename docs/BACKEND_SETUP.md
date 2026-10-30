@@ -1,59 +1,56 @@
-# Centralized S3 Backend Setup
+# Remote State Setup
 
-This repository uses a single AWS S3 bucket for storing Terraform state across all cloud providers (AWS, Azure, GCP).
+Every Terraform configuration in this repository stores its state in one S3 bucket in AWS, whichever cloud it deploys to. State locking uses an S3 lockfile next to each state file (`use_lockfile = true`), so no DynamoDB table is needed. This needs Terraform 1.11 or later.
 
-## Prerequisites
+All four `backend.tf` files use the bucket `multicloud-terraform-state-bucket` in `eu-central-1`.
 
-1. **AWS S3 Bucket**: Create a bucket for storing state files
-2. **DynamoDB Table**: Create a table for state locking
-3. **AWS Credentials**: Configure for all team members
+## Create the bucket
 
-## Setup Instructions
+The `bootstrap/` configuration creates it. Run it once per AWS account, with AWS credentials that can create S3 buckets:
 
-### 1. Create S3 Bucket
-\`\`\`bash
-aws s3 mb s3://your-terraform-state-bucket
-aws s3api put-bucket-versioning --bucket your-terraform-state-bucket --versioning-configuration Status=Enabled
-\`\`\`
+```bash
+cd bootstrap
+terraform init
+terraform apply
+```
 
-### 2. Create DynamoDB Table
-\`\`\`bash
-aws dynamodb create-table \
-  --table-name terraform-state-lock \
-  --attribute-definitions AttributeName=LockID,AttributeType=S \
-  --key-schema AttributeName=LockID,KeyType=HASH \
-  --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5
-\`\`\`
+It creates a versioned, encrypted bucket with public access blocked and a policy that refuses non-TLS requests. Its own state is local (`bootstrap/terraform.tfstate`, git-ignored) because the bucket does not exist yet. The bucket has `prevent_destroy`, so a stray `terraform destroy` cannot delete it.
 
-### 3. Configure AWS Credentials
-All team members need AWS credentials configured:
-\`\`\`bash
+Until the bucket exists, `terraform init` in any other folder fails with `S3 bucket ... does not exist`.
+
+## Using a different bucket name
+
+S3 bucket names are global. If `multicloud-terraform-state-bucket` is taken, or you want your own, pass `-var state_bucket_name=<name>` to the bootstrap, then change `bucket` in these files to match:
+
+- `aws/backend.tf`
+- `azure/backend.tf`
+- `gcp/backend.tf`
+- `shopedge/infra/backend.tf`
+
+If you change the region, update `region` in the same files and `-var region=<region>` for the bootstrap.
+
+## State file organization
+
+| Configuration | State key |
+|---|---|
+| `aws/` | `aws/terraform.tfstate` |
+| `azure/` | `azure/terraform.tfstate` |
+| `gcp/` | `gcp/terraform.tfstate` |
+| `shopedge/infra` (EKS, AKS and GKE together) | `shopedge/terraform.tfstate` |
+
+## Credentials
+
+Anyone running Terraform here needs AWS credentials with read and write access to the bucket, even for the Azure and GCP configurations:
+
+```bash
 aws configure
-\`\`\`
-
-Or set environment variables:
-\`\`\`bash
+# or
 export AWS_ACCESS_KEY_ID="your-access-key"
 export AWS_SECRET_ACCESS_KEY="your-secret-key"
-export AWS_DEFAULT_REGION="us-east-1"
-\`\`\`
+```
 
-## State File Organization
+The region of the bucket (`eu-central-1`) is set in each `backend.tf`, so it does not depend on `AWS_DEFAULT_REGION`.
 
-- AWS: `s3://your-terraform-state-bucket/aws/terraform.tfstate`
-- Azure: `s3://your-terraform-state-bucket/azure/terraform.tfstate`
-- GCP: `s3://your-terraform-state-bucket/gcp/terraform.tfstate`
+## Cleanup
 
-## Benefits
-
-- **Centralized Management**: All state files in one location
-- **Consistent Backup**: Unified versioning and backup policies
-- **State Locking**: DynamoDB prevents concurrent modifications
-- **Cost Optimization**: Single storage provider
-- **Access Control**: Manage permissions through AWS IAM
-
-## Authentication Notes
-
-- **AWS**: Uses native AWS credentials
-- **Azure**: Requires AWS credentials (cross-cloud access)
-- **GCP**: Requires AWS credentials (cross-cloud access)
+Terraform's `destroy` in the other folders does not touch the bucket. When you no longer need any of the state, empty the bucket (including all object versions), remove the `prevent_destroy` lifecycle block from `bootstrap/main.tf`, and run `terraform destroy` in `bootstrap/`.

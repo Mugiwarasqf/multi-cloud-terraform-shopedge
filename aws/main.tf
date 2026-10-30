@@ -5,7 +5,6 @@ locals {
     ManagedBy   = "Terraform"
     Owner       = var.owner
     CostCenter  = var.cost_center
-    CreatedDate = formatdate("YYYY-MM-DD", timestamp())
   }
 }
 
@@ -17,9 +16,15 @@ data "aws_ami" "amazon_linux" {
   most_recent = true
   owners      = ["amazon"]
 
+  # Amazon Linux 2023 (Amazon Linux 2 is past end of life)
   filter {
     name   = "name"
-    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
+    values = ["al2023-ami-2023.*-x86_64"]
+  }
+
+  filter {
+    name   = "architecture"
+    values = ["x86_64"]
   }
 
   filter {
@@ -90,13 +95,16 @@ module "compute" {
   database_endpoint     = module.database.database_endpoint
 }
 
+# Container layer: off by default so a plain apply builds only the 3-tier stack.
+# Set enable_containers = true to also provision ECR, ECS and EKS.
 module "ecr" {
+  count  = var.enable_containers ? 1 : 0
   source = "./modules/ecr"
-  
 }
 
 # ECS Module
 module "ecs" {
+  count           = var.enable_containers ? 1 : 0
   source          = "./modules/ecs"
   app_image       = var.app_image
   app_port        = var.app_port
@@ -106,6 +114,7 @@ module "ecs" {
 }
 
 module "eks" {
+  count  = var.enable_containers ? 1 : 0
   source = "./modules/eks"
 
   cluster_name = "${var.project_name}-eks"
@@ -123,7 +132,7 @@ module "eks" {
   node_max_size         = 3
 
   ssh_key_name       = var.key_pair_name
-  kubernetes_version = "1.31"
+  kubernetes_version = var.eks_kubernetes_version
   common_tags        = local.common_tags
 
   # pass security group ids from the security module using the names you already used
@@ -139,6 +148,6 @@ module "eks" {
   endpoint_public_access  = false
   endpoint_private_access = true
   remote_access_sg_ids    = [module.security.app_security_group_id]
-  ami_type                = "AL2_x86_64"
+  ami_type                = "AL2023_x86_64_STANDARD"
   capacity_type           = "ON_DEMAND"
 }

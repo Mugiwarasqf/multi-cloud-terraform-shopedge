@@ -1,226 +1,139 @@
-# Multi-Cloud Terraform Infrastructure
-A production-ready multi-cloud Terraform infrastructure repository supporting AWS, Azure, and GCP with a standardized 3-tier architecture using modular design patterns.
+# Multi-Cloud Terraform + ShopEdge
 
-## Architecture Overview
-This repository implements a consistent 3-tier architecture across all three major cloud providers using reusable Terraform modules:
+[![validate](https://github.com/Mugiwarasqf/multi-cloud-terraform-shopedge/actions/workflows/validate.yml/badge.svg)](https://github.com/Mugiwarasqf/multi-cloud-terraform-shopedge/actions/workflows/validate.yml)
 
-Tier 1: Network layer (VPC/VNet, subnets, security groups)
-Tier 2: Compute layer (EC2/VM/Compute Engine instances)
-Tier 3: Database layer (RDS/Azure SQL/Cloud SQL)
+Modular Terraform that builds the same 3-tier architecture (network, compute, database) on AWS, Azure and GCP, plus a managed Kubernetes cluster and container registry on each. **ShopEdge**, a containerised web app, is deployed to all three clusters with one Helm chart.
 
-##  Repository Structure
+> **Status:** not currently deployed; the stack was torn down to avoid running costs. CI validates the Terraform and the Helm chart. The deploy scripts have not been run end to end.
 
-```bash
-multi-cloud-terraform/
-├── README.md
-├── Architecture/         
-├── .gitignore
-├── aws/                  # AWS infrastructure
-│   ├── main.tf           # Main configuration using modules
-│   ├── providers.tf      # AWS provider configuration
-│   ├── backend.tf        # Remote state configuration
-│   ├── variables.tf      # Input variables
-│   ├── outputs.tf        # Output values
-│   ├── terraform.tfvars.example
-│   └── modules/          # AWS-specific modules
-│       ├── network/      # VPC, subnets, routing
-│       ├── security/     # Security groups, NACLs
-│       ├── compute/      # EC2 instances, launch templates
-│       └── database/     # RDS instances and configurations
-├── azure/                # Azure infrastructure
-│   ├── main.tf           # Main configuration using modules
-│   ├── providers.tf      # Azure provider configuration
-│   ├── backend.tf        # Remote state configuration
-│   ├── variables.tf      # Input variables
-│   ├── outputs.tf        # Output values
-│   ├── terraform.tfvars.example
-│   └── modules/          # Azure-specific modules
-│       ├── network/      # VNet, subnets, routing
-│       ├── security/     # NSGs, security rules
-│       ├── compute/      # Virtual machines, scale sets
-│       └── database/     # Azure SQL instances
-├── gcp/                  # GCP infrastructure
-│   ├── main.tf           # Main configuration using modules
-│   ├── providers.tf      # GCP provider configuration
-│   ├── backend.tf        # Remote state configuration
-│   ├── variables.tf      # Input variables
-│   ├── outputs.tf        # Output values
-│   ├── terraform.tfvars.example
-│   └── modules/          # GCP-specific modules
-│       ├── network/      # VPC, subnets, Cloud Router/NAT
-│       ├── security/     # Firewall rules
-│       ├── compute/      # Compute Engine instances
-│       └── database/     # Cloud SQL instances
-└── docs/                 # Documentation
-    ├── BACKEND_SETUP.md  # Backend configuration guide
-    └── MODULES.md        # Module documentation
+Architecture diagram: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+
+## Highlights
+
+- One module layout (network, security, compute, database) used on all three clouds
+- Public web, private app and private database subnets
+- EKS, AKS and GKE, each with its own registry (ECR, ACR, Artifact Registry)
+- One image and one Helm chart deployed unchanged to all three clusters
+- Pod autoscaling (HPA, 2 to 10 replicas) and GKE node-pool autoscaling
+- Remote state in S3 with locking, created by a bootstrap configuration
+- CI runs format, validate and lint checks on every push
+
+## Architecture
+
+| Layer | AWS | Azure | GCP |
+|---|---|---|---|
+| Network | VPC, subnets, NAT gateway per AZ | VNet, subnets, NAT gateway | VPC, subnets, Cloud NAT |
+| Security | Security groups | NSGs | Firewall rules |
+| Compute | EC2 (Amazon Linux 2023) | Virtual machines (Ubuntu 22.04) | Compute Engine (Debian 12) |
+| Database | RDS (MySQL 8.4) | Azure Database for MySQL Flexible Server | Cloud SQL (MySQL) |
+| Kubernetes | EKS | AKS | GKE |
+| Registry | ECR | ACR | Artifact Registry |
+
+The 3-tier stacks and ShopEdge are independent: ShopEdge's clusters have their own networks and are not connected to the 3-tier networks or databases. Deploy either or both.
+
+## Repository structure
 
 ```
-
-Modular Architecture Benefits
-Reusability: Modules can be reused across different environments
-Maintainability: Changes to modules automatically apply to all implementations
-Consistency: Standardized patterns across all cloud providers
-Scalability: Easy to add new environments or modify existing ones
-Testing: Individual modules can be tested independently
-Prerequisites
-Terraform >= 1.0
-AWS CLI configured with appropriate credentials
-Azure CLI configured with appropriate credentials
-Google Cloud SDK configured with appropriate credentials
-Quick Start
-1. Clone and Initialize
-```bash git clone cd multi-cloud-terraform ```
-
-2. Choose Our Cloud Provider
-Navigate to the desired cloud provider directory:
-
-```bash
-
-For AWS
-cd aws
-
-For Azure
-cd azure
-
-For GCP
-cd gcp ```
-
-3. Configure Variables
-Copy the example variables file and customize:
-
-```bash cp terraform.tfvars.example terraform.tfvars
-
-Edit terraform.tfvars with our specific values
+├── bootstrap/            # Creates the S3 bucket that holds Terraform state
+├── aws/ azure/ gcp/      # 3-tier infrastructure, one folder per cloud
+├── shopedge/
+│   ├── infra/            # EKS, AKS and GKE with registries: one root, modules per cloud, one state file
+│   └── k8_deployment/
+│       ├── app/          # Dockerfile, nginx config, static page
+│       ├── helm-charts/  # ShopEdge Helm chart
+│       └── scripts/      # deploy_all.sh, build_push_all.sh, deploy_to_clouds_all.sh
+├── .github/workflows/    # CI checks
+└── docs/                 # Architecture, remote state setup, module reference
 ```
 
-4. Initialize and Deploy
-```bash
+Each cloud folder contains `main.tf`, `providers.tf`, `backend.tf`, `variables.tf`, `outputs.tf`, `terraform.tfvars.example` and `modules/`. Provider lock files are committed. `aws/` can also create its own ECR, ECS and EKS (`enable_containers`, off by default); ShopEdge does not use them. See [docs/MODULES.md](docs/MODULES.md).
 
-Initialize Terraform
+## Prerequisites
+
+- Terraform >= 1.11
+- AWS CLI, Azure CLI and Google Cloud SDK, authenticated. State is stored in AWS, so AWS credentials are needed for every stack.
+- Docker, `kubectl` and Helm 3
+- GCP: enable the Service Usage and Cloud Resource Manager APIs once, so Terraform can enable the rest:
+  `gcloud services enable serviceusage.googleapis.com cloudresourcemanager.googleapis.com --project <project-id>`
+
+## Getting started
+
+**1. Create the state bucket** (once per AWS account). See [docs/BACKEND_SETUP.md](docs/BACKEND_SETUP.md).
+
+```bash
+cd bootstrap
 terraform init
+terraform apply
+```
 
-Review the plan
-terraform plan
+**2. Deploy ShopEdge with one command.** This provisions EKS, AKS and GKE with their registries, builds and pushes the image, and deploys the Helm chart to all three clusters.
 
-Apply the infrastructure
-terraform apply ```
+```bash
+cd shopedge/infra
+cp terraform.tfvars.example terraform.tfvars   # set gcp_project_id and azure_subscription_id
+cd ../k8_deployment/scripts
+./deploy_all.sh                                # AUTO_APPROVE=1 skips the confirmation prompt
+```
 
-Module Structure
-Each cloud provider follows a consistent module structure:
+The three clouds share one Terraform configuration and one state file, so credentials for all three must be available together: `aws configure`, `az login` and `gcloud auth application-default login`. To build one cloud only, run `terraform apply -target=module.aws` (or `azure`, `gcp`) in `shopedge/infra`.
 
-Network Module
-Creates VPC/VNet with appropriate CIDR blocks
-Sets up public, private, and database subnets
-Configures routing tables and NAT gateways
-Establishes private connectivity for databases
-Security Module
-Implements security groups/NSGs/firewall rules
-Follows principle of least privilege
-Separates traffic between tiers
-Allows only necessary ports and protocols
-Compute Module
-Creates instance templates/images
-Deploys instances across availability zones
-Configures user data for application setup
-Implements proper tagging and labeling
-Database Module
-Deploys managed database services
-Sets up private networking
-Implements encryption at rest and in transit
-Cloud-Specific Setup
-AWS Setup
-Configure AWS credentials: ```bash aws configure ```
+| Setting | Default |
+|---|---|
+| `gcp_project_id` | required |
+| `azure_subscription_id` | `ARM_SUBSCRIPTION_ID` if unset |
+| `eks_cluster_version` | `1.36` (`aws eks describe-cluster-versions` lists supported versions) |
+| `aws_region`, `azure_location`, `gcp_region` | `us-east-1`, `East US`, `us-central1` |
+| `azure_node_vm_size` | `Standard_DS2_v2` (needs quota in your subscription) |
 
-Create S3 bucket for Terraform state (update backend.tf with our bucket name): ```bash aws s3 mb s3://our-terraform-state-bucket ```
+To run the stages separately, apply Terraform, then export `AWS_ACCOUNT_ID`, `AZURE_REGISTRY` (the `azure_acr_login_server` output without `.azurecr.io`) and `GCP_PROJECT`, and run `build_push_all.sh` followed by `deploy_to_clouds_all.sh`.
 
-Create DynamoDB table for state locking: ```bash aws dynamodb create-table
---table-name terraform-state-lock
---attribute-definitions AttributeName=LockID,AttributeType=S
---key-schema AttributeName=LockID,KeyType=HASH
---provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5 ```
+No ingress controller is installed, so reach the app through a port-forward on whichever cluster your `kubectl` context points to:
 
-Azure Setup
-Login to Azure: ```bash az login ```
+```bash
+kubectl -n shop-edge port-forward svc/shop-edge-shopedge 8080:80
+```
 
-Create a storage account for Terraform state (update backend.tf with our details): ```bash az group create --name terraform-state-rg --location "East US" az storage account create --name ourtfstateaccount --resource-group terraform-state-rg --location "East US" --sku Standard_LRS ```
+**3. Deploy the 3-tier infrastructure** (optional, independent of ShopEdge).
 
-GCP Setup
-Authenticate with Google Cloud: ```bash gcloud auth login gcloud auth application-default login ```
+```bash
+cd aws                                         # or azure / gcp
+cp terraform.tfvars.example terraform.tfvars   # fill in the values below
+terraform init
+terraform apply
+```
 
-Create a storage bucket for Terraform state (update backend.tf with our bucket name): ```bash gsutil mb gs://our-terraform-state-bucket ```
+- AWS: `db_password`
+- Azure: `admin_password`, and a subscription via `az login` plus `subscription_id`, or the `ARM_*` service principal variables. Terraform creates the resource group unless `resource_group_name` names an existing one.
+- GCP: `gcp_project_id`
 
-Security Considerations
-All network tiers are properly segmented with security groups/NSGs/firewall rules
-Database instances are deployed in private subnets with no internet access
-Web tier allows HTTP/HTTPS traffic from internet only
-App tier allows traffic only from web tier
-Database tier allows traffic only from app tier
-All resources use encryption at rest and in transit where available
-Module Customization
-Each module accepts variables that allow us to customize:
+**4. Tear down** to avoid charges:
 
-Network Module Variables
-VPC/VNet CIDR blocks
-Subnet configurations
-Availability zone distribution
-NAT gateway settings
-Security Module Variables
-Custom firewall rules
-Port configurations
-Source/destination restrictions
-Protocol specifications
-Compute Module Variables
-Instance types and sizes
-Auto-scaling configurations
-User data scripts
-Key pair assignments
-Database Module Variables
-Engine versions
-Instance classes
-Storage configurations
-Backup settings
-Maintenance windows
-Outputs
-Each module and main configuration provides comprehensive outputs:
+```bash
+terraform -chdir=shopedge/infra destroy   # EKS, AKS, GKE and the registries
+terraform destroy                         # in aws/, azure/ or gcp/, whichever you applied
+```
 
-Network Outputs
-VPC/VNet IDs and names
-Subnet IDs and CIDR blocks
-Route table IDs
-NAT gateway IDs
-Security Outputs
-Security group/NSG IDs
-Firewall rule IDs
-Applied rule configurations
-Compute Outputs
-Instance IDs and names
-Public and private IP addresses
-Instance states
-Database Outputs
-Database instance identifiers
-Connection endpoints
-Port numbers
-Best Practices
-State Management: Always use remote state with locking
-Variable Validation: Use variable validation rules where appropriate
-Tagging: Implement consistent tagging across all resources
-Documentation: Keep module documentation up to date
-Testing: Test modules in development before production deployment
-Security: Follow cloud provider security best practices
-Monitoring: Implement logging and monitoring for all resources
-Troubleshooting
-Common issues and solutions:
+The state bucket is protected with `prevent_destroy`; see [docs/BACKEND_SETUP.md](docs/BACKEND_SETUP.md) to remove it.
 
-State Lock Issues: Check backend configuration and permissions
-Provider Authentication: Verify CLI tools are properly configured
-Resource Limits: Check cloud provider quotas and limits
-Network Connectivity: Verify security group and firewall rules
-Module Dependencies: Ensure proper dependency ordering
-Contributing
-Follow Terraform best practices and style guidelines
-Ensure all code passes terraform validate and terraform fmt -check
-Update module documentation for any changes
-Test configurations in development environment first
-Submit pull requests with clear descriptions of changes
-Include examples and test cases for new modules
+## Security
+
+- Databases are private: RDS is not publicly accessible and sits in subnets with no default route, Azure MySQL uses a delegated subnet with a private DNS zone, and Cloud SQL has no public IP.
+- AWS tiers are chained by security group: the internet reaches web on 80/443, web reaches app on 8080, app reaches the database on 3306. SSH is allowed only from inside the VPC.
+- RDS storage is encrypted. The state bucket is versioned and encrypted, blocks public access and requires TLS.
+- AKS pulls images from ACR with a managed identity (`AcrPull`); ACR admin credentials are disabled. ECR scans images on push.
+- Secrets have no defaults in code. Real values go in `terraform.tfvars` (git-ignored) or environment variables; Azure also accepts `ARM_*` variables and `az login`.
+
+## Known limitations
+
+- Azure: the NSGs contain only allow rules, so Azure's default rule allowing traffic inside the VNet still applies and app-to-database isolation is not enforced.
+- GCP: the database firewall rule targets a network tag that no resource carries, so it matches nothing. The database is protected by having no public IP.
+- AWS: the app-tier `user_data` only writes log lines; nothing listens on port 8080.
+- Azure MySQL (8.0.21) and Cloud SQL (`MYSQL_8_0`) still use MySQL 8.0; the AWS stack uses 8.4.
+- EKS and AKS node counts are fixed; no cluster autoscaler is installed.
+- The chart's ingress needs ingress-nginx and cert-manager, and the HPA needs metrics-server on EKS (AKS and GKE include it). None of these is installed by this repository.
+
+## Roadmap
+
+- Deploy pipeline using OIDC, with a plan on pull requests and an approval before apply
+- Install ingress-nginx, cert-manager and metrics-server with Terraform or Helm
+- Close the Azure and GCP isolation gaps

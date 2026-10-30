@@ -9,16 +9,16 @@ APP_DIR="$SCRIPT_DIR/../app"
 APP_NAME="shop-edge"
 VERSION="${VERSION:-1.0.0}"
 
-# AWS ECR (registry created by shopedge/infra/aws)
+# AWS ECR (registry created by shopedge/infra, module aws)
 : "${AWS_ACCOUNT_ID:?Set AWS_ACCOUNT_ID}"
 AWS_REGION="${AWS_REGION:-us-east-1}"
 ECR_REPO="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$APP_NAME"
 
-# Azure ACR (use the acr_login_server output from shopedge/infra/azure, without .azurecr.io)
+# Azure ACR (use the azure_acr_login_server output from shopedge/infra, without .azurecr.io)
 : "${AZURE_REGISTRY:?Set AZURE_REGISTRY, e.g. shopedgeacrab12c}"
 AZURE_REPO="$AZURE_REGISTRY.azurecr.io/$APP_NAME"
 
-# GCP Artifact Registry (repository created by shopedge/infra/gcp)
+# GCP Artifact Registry (repository created by shopedge/infra, module gcp)
 : "${GCP_PROJECT:?Set GCP_PROJECT}"
 GCP_REGION="${GCP_REGION:-us-central1}"
 GCP_REPO="$GCP_REGION-docker.pkg.dev/$GCP_PROJECT/$APP_NAME/$APP_NAME"
@@ -27,7 +27,7 @@ echo "Building Docker image..."
 docker build -t "$APP_NAME:$VERSION" "$APP_DIR"
 
 echo "Pushing to AWS ECR..."
-aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$ECR_REPO"
+aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "${ECR_REPO%%/*}"
 docker tag "$APP_NAME:$VERSION" "$ECR_REPO:$VERSION"
 docker push "$ECR_REPO:$VERSION"
 

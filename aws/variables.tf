@@ -105,9 +105,9 @@ variable "db_engine" {
 }
 
 variable "db_engine_version" {
-  description = "Database engine version"
+  description = "Database engine version (MySQL 8.0 left RDS standard support on 2026-07-31)"
   type        = string
-  default     = "8.0"
+  default     = "8.4"
 }
 
 variable "db_instance_class" {
@@ -135,10 +135,9 @@ variable "db_username" {
 }
 
 variable "db_password" {
-  description = "Database master password"
+  description = "Database master password (no default: set it in terraform.tfvars or TF_VAR_db_password)"
   type        = string
   sensitive   = true
-  default     = "changeme123!"
 }
 
 variable "db_backup_retention_period" {
@@ -159,24 +158,14 @@ variable "db_maintenance_window" {
   default     = "sun:04:00-sun:05:00"
 }
 
-variable "vpc_id" {
-  description = "VPC ID where resources will be deployed"
+variable "enable_containers" {
+  description = "Also provision ECR, ECS and EKS in the AWS root (ShopEdge has its own EKS in shopedge/infra/modules/aws)"
+  type        = bool
+  default     = false
+}
+
+variable "eks_kubernetes_version" {
+  description = "Kubernetes version for the optional EKS cluster; list supported versions with: aws eks describe-cluster-versions"
   type        = string
-}
-
-variable "subnet_ids" {
-  description = "Subnet IDs for resources"
-  type        = list(string)
-}
-
-variable "subnets" {
-  description = "Subnets for the EKS cluster"
-  type        = list(string)
-}
-
-variable "tags" {
-  description = "commom_tags"
-  type        = map(string)
-  default     = {}
-  
+  default     = "1.36"
 }

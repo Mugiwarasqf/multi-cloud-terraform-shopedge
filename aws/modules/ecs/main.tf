@@ -35,8 +35,8 @@ resource "aws_ecs_service" "main" {
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets         = var.subnets
-    security_groups = var.security_groups
+    subnets          = var.subnets
+    security_groups  = var.security_groups
     assign_public_ip = true
   }
 }

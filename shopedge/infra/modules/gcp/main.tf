@@ -1,13 +1,21 @@
-
-
-
 #################################
-# 3. GKE Cluster + Node Pool
+# GKE Cluster + Node Pool
 #################################
+
+# One zone for the nodes. A regional cluster otherwise runs the node pool in every
+# zone of the region, which triples the node count and cost.
+data "google_compute_zones" "available" {
+  region = var.region
+  status = "UP"
+
+  depends_on = [google_project_service.apis]
+}
+
 resource "google_container_cluster" "gke" {
-  name     = "shopedge-cluster"
-  location = var.region
-  deletion_protection = false  # ✅ Allow deletion
+  name                = "shopedge-cluster"
+  location            = var.region
+  node_locations      = [data.google_compute_zones.available.names[0]]
+  deletion_protection = false # Allow terraform destroy
 
   remove_default_node_pool = true
   initial_node_count       = 1
@@ -32,11 +40,12 @@ resource "google_container_cluster" "gke" {
 
 # Managed Node Pool
 resource "google_container_node_pool" "primary_nodes" {
-  name       = "default-node-pool"
-  location   = var.region
-  cluster    = google_container_cluster.gke.name
+  name     = "default-node-pool"
+  location = var.region
+  cluster  = google_container_cluster.gke.name
 
-  node_count = 2
+  # Starting size only; the autoscaler owns the count after that
+  initial_node_count = 2
 
   node_config {
     machine_type = "e2-medium"
@@ -65,6 +74,8 @@ resource "google_artifact_registry_repository" "app_repo" {
   repository_id = "shop-edge"
   description   = "Docker images for ShopEdge app"
   format        = "DOCKER"
+
+  depends_on = [google_project_service.apis]
 }
 
 

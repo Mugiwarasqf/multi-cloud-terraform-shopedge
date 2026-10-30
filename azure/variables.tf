@@ -88,7 +88,6 @@ variable "admin_password" {
   description = "Admin password for VMs"
   type        = string
   sensitive   = true
-  default     = "P@ssw0rd123!"
 }
 
 # Database Variables
@@ -128,15 +127,43 @@ variable "db_geo_redundant_backup_enabled" {
   default     = false
 }
 
+variable "resource_group_name" {
+  description = "Existing resource group to deploy into. Leave null to have Terraform create <project_name>-<environment>-rg in azure_region."
+  type        = string
+  default     = null
+}
+
+# Authentication. There are no defaults and none of these are required: leave them
+# null to use the ARM_* environment variables or a signed-in `az login` session
+# (the usual setup for CI). To use a service principal from a file, set all four in
+# terraform.tfvars (git-ignored).
 variable "client_id" {
-  default = "68ae1b45-fe21-4222-900a-bcaba5d5b0f9"
+  description = "Service principal application (client) ID"
+  type        = string
+  default     = null
 }
+
 variable "client_secret" {
-  default = "WZp8Q~1O1YlInFvNLl-kXkprpY~7kec-leZwjdra"
+  description = "Service principal client secret"
+  type        = string
+  sensitive   = true
+  default     = null
 }
+
 variable "subscription_id" {
-  default = "a2b28c85-1948-4263-90ca-bade2bac4df4"
+  description = "Azure subscription ID (or set ARM_SUBSCRIPTION_ID)"
+  type        = string
+  default     = null
 }
+
 variable "tenant_id" {
-  default = "30fe8ff1-adc6-444d-ba94-1238894df42c"
+  description = "Azure tenant ID"
+  type        = string
+  default     = null
+}
+
+variable "resource_provider_registrations" {
+  description = "How azurerm registers resource providers: core, extended, all, none or legacy. Use none if the identity cannot register providers (some sandbox subscriptions)."
+  type        = string
+  default     = "core"
 }

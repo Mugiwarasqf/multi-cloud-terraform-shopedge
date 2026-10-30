@@ -54,8 +54,8 @@ resource "aws_db_instance" "main" {
 
   # Backup Configuration
   backup_retention_period = var.db_backup_retention_period
-  backup_window          = var.db_backup_window
-  maintenance_window     = var.db_maintenance_window
+  backup_window           = var.db_backup_window
+  maintenance_window      = var.db_maintenance_window
 
   # Parameter Group
   parameter_group_name = aws_db_parameter_group.main.name

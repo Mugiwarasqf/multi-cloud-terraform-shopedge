@@ -2,7 +2,7 @@
 
 resource "azurerm_resource_group" "rg" {
   name     = "shopedge-rg"
-  location = "East US" # Change to your preferred Azure region
+  location = var.location
 }
 
 
@@ -16,9 +16,9 @@ resource "azurerm_kubernetes_cluster" "aks" {
   dns_prefix          = "shopedge"
 
   default_node_pool {
-    name       = "default"
-    node_count = 2
-    vm_size    = "Standard_DS2_v2"
+    name           = "default"
+    node_count     = 2
+    vm_size        = var.node_vm_size
     vnet_subnet_id = azurerm_subnet.aks_subnet.id
   }
 
@@ -27,8 +27,13 @@ resource "azurerm_kubernetes_cluster" "aks" {
   }
 
   network_profile {
-    network_plugin = "azure" # ecommended for production
+    network_plugin = "azure" # recommended for production
     network_policy = "azure"
+
+    # Must not overlap the VNet (10.0.0.0/16). The AKS default, 10.0.0.0/16, does,
+    # and AKS rejects the cluster for it.
+    service_cidr   = "172.16.0.0/16"
+    dns_service_ip = "172.16.0.10"
   }
 
   role_based_access_control_enabled = true
@@ -41,7 +46,7 @@ resource "azurerm_container_registry" "acr" {
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
   sku                 = "Basic"
-  admin_enabled       = true
+  admin_enabled       = false
 }
 
 # Random string to avoid ACR name collisions (ACR names must be globally unique)
@@ -74,11 +79,4 @@ output "acr_login_server" {
   value = azurerm_container_registry.acr.login_server
 }
 
-output "acr_admin_username" {
-  value = azurerm_container_registry.acr.admin_username
-}
 
-output "acr_admin_password" {
-  value     = azurerm_container_registry.acr.admin_password
-  sensitive = true
-}

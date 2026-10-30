@@ -1,0 +1,9 @@
+# Keep LF line endings in every checkout, including Windows. The VM boot scripts
+# and the build/deploy scripts break on Linux when they contain CRLF.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary

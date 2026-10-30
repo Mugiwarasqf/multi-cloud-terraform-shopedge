@@ -1,6 +1,9 @@
 # Azure Configuration
 azure_region = "East US"
 
+# Deploy into an existing resource group instead of creating one (optional)
+# resource_group_name = "my-existing-rg"
+
 # Project Configuration
 environment   = "dev"
 project_name  = "multi-cloud-terraform"
@@ -19,18 +22,21 @@ app_vm_size     = "Standard_B2s"
 web_vm_count    = 2
 app_vm_count    = 2
 admin_username  = "azureuser"
-admin_password  = "P@ssw0rd123!"
+admin_password  = "<strong-password>"
 
 # Database Configuration
-db_sku_name                        = "S0" #"GP_Gen5_2"
+db_sku_name                        = "B_Standard_B1ms" # MySQL Flexible Server SKU
 db_storage_mb                      = 20480
 db_name                           = "appdb"
 db_username                       = "dbadmin"
 db_backup_retention_days          = 7
 db_geo_redundant_backup_enabled   = false
 
-
-client_id = "68ae1b45-fe21-4222-900a-bcaba5d5b0f9"
-client_secret = "WZp8Q~1O1YlInFvNLl-kXkprpY~7kec-leZwjdra"
-subscription_id = "a2b28c85-1948-4263-90ca-bade2bac4df4"
-tenant_id       = "30fe8ff1-adc6-444d-ba94-1238894df42c"
+# Authentication (never commit real values).
+# Easiest: run `az login` and set only subscription_id (or export ARM_SUBSCRIPTION_ID).
+# To use a service principal, set all four, or export ARM_CLIENT_ID, ARM_CLIENT_SECRET,
+# ARM_SUBSCRIPTION_ID and ARM_TENANT_ID instead (the usual setup for CI).
+subscription_id = "<subscription-id>"
+# client_id       = "<service-principal-app-id>"
+# client_secret   = "<service-principal-secret>"
+# tenant_id       = "<tenant-id>"

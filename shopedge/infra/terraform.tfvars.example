@@ -1,0 +1,12 @@
+# GCP (required)
+gcp_project_id = "<your-gcp-project-id>"
+gcp_region     = "us-central1"
+
+# AWS
+aws_region          = "us-east-1"
+eks_cluster_version = "1.36"
+
+# Azure. Leave azure_subscription_id out and export ARM_SUBSCRIPTION_ID instead if you prefer.
+azure_subscription_id = "<subscription-id>"
+azure_location        = "East US"
+azure_node_vm_size    = "Standard_DS2_v2"

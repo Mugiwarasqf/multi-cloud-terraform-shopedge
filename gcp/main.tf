@@ -5,21 +5,24 @@ locals {
     managed_by  = "terraform"
     owner       = replace(lower(var.owner), " ", "-")
     cost_center = replace(lower(var.cost_center), " ", "-")
-    created     = formatdate("YYYY-MM-DD", timestamp())
   }
 }
 
-# Enable required APIs
+# Enable required APIs. They stay enabled on destroy so other resources in the
+# project that rely on them keep working.
 resource "google_project_service" "compute" {
-  service = "compute.googleapis.com"
+  service            = "compute.googleapis.com"
+  disable_on_destroy = false
 }
 
 resource "google_project_service" "sql" {
-  service = "sqladmin.googleapis.com"
+  service            = "sqladmin.googleapis.com"
+  disable_on_destroy = false
 }
 
 resource "google_project_service" "servicenetworking" {
-  service = "servicenetworking.googleapis.com"
+  service            = "servicenetworking.googleapis.com"
+  disable_on_destroy = false
 }
 
 # Random password for database
@@ -32,7 +35,7 @@ resource "random_password" "db_password" {
 module "network" {
   source = "./modules/network"
 
-  project_name          = var.project_name
+  project_name         = var.project_name
   gcp_region           = var.gcp_region
   public_subnet_cidr   = var.public_subnet_cidr
   private_subnet_cidr  = var.private_subnet_cidr
@@ -57,7 +60,7 @@ module "security" {
 module "database" {
   source = "./modules/database"
 
-  project_name            = var.project_name
+  project_name           = var.project_name
   common_labels          = local.common_labels
   gcp_region             = var.gcp_region
   network_id             = module.network.network_id
@@ -79,7 +82,7 @@ module "database" {
 module "compute" {
   source = "./modules/compute"
 
-  project_name         = var.project_name
+  project_name        = var.project_name
   common_labels       = local.common_labels
   gcp_region          = var.gcp_region
   gcp_zone            = var.gcp_zone

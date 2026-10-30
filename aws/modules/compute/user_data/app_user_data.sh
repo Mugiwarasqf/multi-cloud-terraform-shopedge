@@ -1,6 +1,6 @@
 #!/bin/bash
 yum update -y
-yum install -y java-11-amazon-corretto
+yum install -y java-17-amazon-corretto
 
 # Create a simple application
 mkdir -p /opt/app

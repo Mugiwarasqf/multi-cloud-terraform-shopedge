@@ -1,0 +1,57 @@
+name: validate
+
+# Checks only. Nothing here needs cloud credentials and nothing is deployed.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dir:
+          - bootstrap
+          - aws
+          - azure
+          - gcp
+          - shopedge/infra
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.13.0"
+
+      - name: Format
+        run: terraform fmt -check -recursive
+        working-directory: ${{ matrix.dir }}
+
+      - name: Init (no backend)
+        run: terraform init -backend=false -input=false
+        working-directory: ${{ matrix.dir }}
+
+      - name: Validate
+        run: terraform validate
+        working-directory: ${{ matrix.dir }}
+
+  helm-and-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+
+      - name: Helm lint
+        run: helm lint shopedge/k8_deployment/helm-charts/shopedge
+
+      - name: Shell syntax
+        run: |
+          for f in shopedge/k8_deployment/scripts/*.sh; do
+            bash -n "$f"
+          done

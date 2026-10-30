@@ -4,7 +4,7 @@ FROM nginx:alpine
 # Copy custom nginx configuration
 COPY nginx.conf /etc/nginx/nginx.conf
 
-# Copy d inex HTML files
+# Copy the index page
 COPY index.html /usr/share/nginx/html/index.html
 
 # Expose port 80

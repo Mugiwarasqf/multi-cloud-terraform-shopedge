@@ -35,9 +35,9 @@ resource "google_sql_database_instance" "main" {
 
 # Database
 resource "google_sql_database" "main" {
-  name     = var.db_name
-  instance = google_sql_database_instance.main.name
-  charset  = "utf8"
+  name      = var.db_name
+  instance  = google_sql_database_instance.main.name
+  charset   = "utf8"
   collation = "utf8_general_ci"
 }
 
